@@ -13,6 +13,7 @@
   language governing permissions and limitations under the License.
   
   Updated by Ping Xiong on May/04/2022.
+  Updated by Ping Xiong on Jun/30/2022, using global var for polling signal, optimize ondelete action.
 */
 
 'use strict';
