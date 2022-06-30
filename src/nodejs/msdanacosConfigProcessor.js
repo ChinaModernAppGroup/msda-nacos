@@ -31,12 +31,13 @@ fetch.Promise = Bluebird;
 
 // Setup a polling signal for audit.
 var fs = require('fs');
-const msdanacosOnPollingSignal = '/var/tmp/msdanacosOnPolling';
+//const msdanacosOnPollingSignal = '/var/tmp/msdanacosOnPolling';
+global.msdanacosOnPolling = [];
 
 
 
 //const pollInterval = 10000; // Interval for polling Registry registry.
-var stopPolling = false;
+//var stopPolling = false;
 
 const nacosAPI = "/nacos/v1/ns/instance/list?serviceName=";
 // For functionnal verification
@@ -79,6 +80,7 @@ msdanacosConfigProcessor.prototype.onStart = function (success) {
         restHelper: this.restHelper
     });
 
+    /*
     // Clear the polling signal for audit.
     try {
         fs.access(msdanacosOnPollingSignal, fs.constants.F_OK, function (err) {
@@ -92,6 +94,7 @@ msdanacosConfigProcessor.prototype.onStart = function (success) {
     } catch(err) {
         logger.fine("MSDAnacos: OnStart, hits error while check pooling signal. ", err.message);
     }
+    */
 
     success();
 };
@@ -152,6 +155,22 @@ msdanacosConfigProcessor.prototype.onPost = function (restOperation) {
     const inputMonitor = inputProperties.healthMonitor.value;
     var pollInterval = dataProperties.pollInterval.value * 1000;
 
+    // Check the existence of the pool in BIG-IP, create an empty pool if the pool doesn't exist.
+    mytmsh.executeCommand("tmsh -a list ltm pool " + inputPoolName)
+    .then(function () {
+        logger.fine("MSDA: onPost, found the pool, no need to create an empty pool.");
+        return;
+    }, function (error) {
+        logger.fine("MSDA: onPost, GET of pool failed, adding an empty pool: " + inputPoolName);
+        let inputEmptyPoolConfig = inputPoolName + ' monitor ' + inputMonitor + ' load-balancing-mode ' + inputPoolType + ' members none';
+        let commandCreatePool = 'tmsh -a create ltm pool ' + inputEmptyPoolConfig;
+        return mytmsh.executeCommand(commandCreatePool);
+    })
+    .catch(function (error) {
+        logger.fine("MSDA: onPost, list pool failed: " + error.message);
+    });
+
+
     // Set the polling interval
     if (pollInterval) {
         if (pollInterval < 10000) {
@@ -164,16 +183,22 @@ msdanacosConfigProcessor.prototype.onPost = function (restOperation) {
     }
     
     // Setup the polling signal for audit
+
+    global.msdanacosOnPolling.push(inputPoolName);
+    logger.fine("MSDA onPost: msdak8sOnpolling: ", global.msdanacosOnPolling);
+
+    /*
     try {
         logger.fine("MSDAnacos: onPost, will set the polling signal. ");
         fs.writeFile(msdanacosOnPollingSignal, '');
     } catch (error) {
         logger.fine("MSDAnacos: onPost, hit error while set polling signal: ", error.message);
     }
+    */
     
     logger.fine("MSDA: onPost, Input properties accepted, change to BOUND status, start to poll Registry.");
 
-    stopPolling = false;
+    //stopPolling = false;
 
     configTaskUtil.sendPatchToBoundState(configTaskState, 
             oThis.getUri().href, restOperation.getBasicAuthorization());
@@ -261,14 +286,19 @@ msdanacosConfigProcessor.prototype.onPost = function (restOperation) {
                     } else {
                         //To clear the pool
                         logger.fine("MSDA: onPost, endpoint list is empty, will clear the BIG-IP pool as well");
-                        mytmsh.executeCommand("tmsh -a list ltm pool " + inputProperties.poolName.value)
+                        mytmsh.executeCommand("tmsh -a list ltm pool " + inputPoolName)
                             .then(function () {
-                                logger.fine("MSDA: onPost, found the pool, will delete it pool as it's empty.");
-                                const commandDeletePool = 'tmsh -a delete ltm pool ' + inputProperties.poolName.value;
-                                return mytmsh.executeCommand(commandDeletePool)
+                                logger.fine("MSDA: onPost, found the pool, will delete all members as it's empty.");
+                                let commandUpdatePool = 'tmsh -a modify ltm pool ' + inputPoolName + ' members delete { all}';
+                                return mytmsh.executeCommand(commandUpdatePool)
                                     .then(function (response) {
-                                        logger.fine("MSDA: onPost, deleted The pool as it's empty. ");
+                                        logger.fine("MSDA: onPost, update the pool to delete all members as it's empty. ");
                                     });
+                            }, function (error) {
+                                logger.fine("MSDA: onPost, GET of pool failed, adding an empty pool: " + inputPoolName);
+                                let inputEmptyPoolConfig = inputPoolName + ' monitor ' + inputMonitor + ' load-balancing-mode ' + inputPoolType + ' members none';
+                                let commandCreatePool = 'tmsh -a create ltm pool ' + inputEmptyPoolConfig;
+                                return mytmsh.executeCommand(commandCreatePool);
                             })
                                 // Error handling - Set the block as 'ERROR'
                             .catch(function (error) {
@@ -284,7 +314,9 @@ msdanacosConfigProcessor.prototype.onPost = function (restOperation) {
         }, pollInterval);
 
         // stop polling while undeployment
-        if (stopPolling) {
+        if (global.msdanacosOnPolling.includes(inputPoolName)) {
+            logger.fine("MSDA: onPost, keep polling registry ...");            
+        } else {
             process.nextTick(() => {
                 clearTimeout(pollRegistry);
                 logger.fine("MSDA: onPost/stopping, Stop polling registry ...");
@@ -302,7 +334,6 @@ msdanacosConfigProcessor.prototype.onPost = function (restOperation) {
                 });
             }, 2000);
         }
-
     })();
 };
 
@@ -342,6 +373,10 @@ msdanacosConfigProcessor.prototype.onDelete = function (restOperation) {
     // device, setup remote hostname, HTTPS port and device group name
     // to be used for identified requests
 
+    // Delete the polling signal
+    let signalIndex = global.msdanacosOnPolling.indexOf(inputProperties.poolName.value);
+    global.msdanacosOnPolling.splice(signalIndex,1);
+
     // Use tmsh to update configuration
 
     mytmsh.executeCommand("tmsh -a list ltm pool " + inputProperties.poolName.value)
@@ -367,12 +402,15 @@ msdanacosConfigProcessor.prototype.onDelete = function (restOperation) {
                 oThis.getUri().href, restOperation.getBasicAuthorization());
         });
         // Always called, no matter the disposition. Also handles re-throwing internal exceptions.
+    
+    /*
     // Stop polling registry while undeploy ??
     process.nextTick(() => {
         stopPolling = true;
         logger.fine("MSDA: onDelete/stopping, Stop polling registry ...");
     });
     //stopPollingEvent.emit('stopPollingRegistry');
+    */
     logger.fine("MSDA: onDelete, Stop polling Registry while ondelete action.");
 };
 
