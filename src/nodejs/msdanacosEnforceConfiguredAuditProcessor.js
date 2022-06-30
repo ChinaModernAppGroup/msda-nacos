@@ -87,13 +87,13 @@ msdanacosEnforceConfiguredAuditProcessor.prototype.onPost = function (restOperat
         var blockInputProperties = blockUtil.getMapFromPropertiesAndValidate(
           auditTaskState.currentInputProperties,
           [
-            "nacosEndpoint",
-            "nacosUserName",
-            "nacosPassword",
-            "serviceName",
+            //"nacosEndpoint",
+            //"nacosUserName",
+            //"nacosPassword",
+            //"serviceName",
             "poolName",
-            "poolType",
-            "healthMonitor",
+            //"poolType",
+            //"healthMonitor",
           ]
         );
         

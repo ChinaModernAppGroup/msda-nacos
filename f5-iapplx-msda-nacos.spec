@@ -1,7 +1,7 @@
 Summary: F5 Basic iApp
 Name: f5-iapplx-msda-nacos
 Version: 0.0.3
-Release: 0004
+Release: 0005
 BuildArch: noarch
 Group: Development/Libraries
 License: Commercial

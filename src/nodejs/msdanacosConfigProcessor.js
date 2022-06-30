@@ -185,7 +185,7 @@ msdanacosConfigProcessor.prototype.onPost = function (restOperation) {
     // Setup the polling signal for audit
 
     global.msdanacosOnPolling.push(inputPoolName);
-    logger.fine("MSDA onPost: msdak8sOnpolling: ", global.msdanacosOnPolling);
+    logger.fine("MSDA onPost: msdanacosOnpolling: ", global.msdanacosOnPolling);
 
     /*
     try {
@@ -373,10 +373,6 @@ msdanacosConfigProcessor.prototype.onDelete = function (restOperation) {
     // device, setup remote hostname, HTTPS port and device group name
     // to be used for identified requests
 
-    // Delete the polling signal
-    let signalIndex = global.msdanacosOnPolling.indexOf(inputProperties.poolName.value);
-    global.msdanacosOnPolling.splice(signalIndex,1);
-
     // Use tmsh to update configuration
 
     mytmsh.executeCommand("tmsh -a list ltm pool " + inputProperties.poolName.value)
@@ -400,8 +396,14 @@ msdanacosConfigProcessor.prototype.onDelete = function (restOperation) {
             logger.fine("MSDA: onDelete, Delete failed, setting block to ERROR: " + error.message);
             configTaskUtil.sendPatchToErrorState(configTaskState, error,
                 oThis.getUri().href, restOperation.getBasicAuthorization());
-        });
+        })
         // Always called, no matter the disposition. Also handles re-throwing internal exceptions.
+        .done(function () {
+            logger.fine("MSDA: onDelete, delete DONE!!! Continue to clear the polling signal.");  // happens regardless of errors or no errors ....
+            // Delete the polling signal
+            let signalIndex = global.msdanacosOnPolling.indexOf(inputProperties.poolName.value);
+            global.msdanacosOnPolling.splice(signalIndex,1);
+        });
     
     /*
     // Stop polling registry while undeploy ??
