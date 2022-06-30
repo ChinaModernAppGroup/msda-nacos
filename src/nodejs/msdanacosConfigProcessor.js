@@ -31,10 +31,9 @@ fetch.Promise = Bluebird;
 
 
 // Setup a polling signal for audit.
-var fs = require('fs');
+//var fs = require('fs');
 //const msdanacosOnPollingSignal = '/var/tmp/msdanacosOnPolling';
 global.msdanacosOnPolling = [];
-
 
 
 //const pollInterval = 10000; // Interval for polling Registry registry.
@@ -327,7 +326,7 @@ msdanacosConfigProcessor.prototype.onPost = function (restOperation) {
                 const commandDeletePool = 'tmsh -a delete ltm pool ' + inputPoolName;
                 mytmsh.executeCommand(commandDeletePool)
                 .then (function () {
-                    logger.fine("MSDA: onPost/stopping, the pool removed");
+                    logger.fine("MSDA: onPost/stopping, the pool removed: " + inputPoolName);
                 })
                     // Error handling
                 .catch(function (err) {
