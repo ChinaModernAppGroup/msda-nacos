@@ -36,7 +36,7 @@
       "type": "STRING",
       "value": "msda.nacos.com",
       "metaData": {
-        "description": "Service name to be exposed",
+        "description": "Service name to be exposed, eg nacosmsda.naf5demo.com&namespaceId=41e92cf7-f178-46fa-8038-49e2e9f0d754",
         "displayName": "Service Name in registry",
         "isRequired": true
       }
