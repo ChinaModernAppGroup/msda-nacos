@@ -219,6 +219,7 @@ msdanacosConfigProcessor.prototype.onPost = function (restOperation) {
 
     (function schedule() {
         var pollRegistry = setTimeout(function () {
+            logger.fine("MSDA: onPost, will send request to poll service: " + absoluteUrl);
             fetch(absoluteUrl)
                 .then(function (res) {
                     if (res.ok) { // res.status >= 200 && res.status < 300,  // json response
