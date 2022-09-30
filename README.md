@@ -34,11 +34,41 @@ Save the JSON to block.json and use it in the curl call. Refer to the clouddoc l
     {
       "id": "nacosEndpoint",
       "type": "STRING",
-      "value": "1.1.1.1:8848, 1.1.1.2:8848",
+      "value": "http://1.1.1.1:8848",
       "metaData": {
-        "description": "Nacos endpoint list",
+        "description": "Nacos endpoint list, eg. http://1.1.1.1:8848 or https://1.1.1.2:8848",
         "displayName": "Nacos endpoints",
         "isRequired": true
+      }
+    },
+    {
+      "id": "nacosUserName",
+      "type": "STRING",
+      "value": "nacos",
+      "metaData": {
+        "description": "Nacos username",
+        "displayName": "Nacos Username",
+        "isRequired": false
+      }
+    },
+    {
+      "id": "nacosPassword",
+      "type": "STRING",
+      "value": "nacos",
+      "metaData": {
+        "description": "Nacos password",
+        "displayName": "Nacos Password",
+        "isRequired": false
+      }
+    },
+    {
+      "id": "namespaceId",
+      "type": "STRING",
+      "value": "",
+      "metaData": {
+        "description": "Namespce ID of the service, NOT the name, eg 41e92cf7-f178-46fa-8038-49e2e9f0d754",
+        "displayName": "NamespaceId in registry",
+        "isRequired": false
       }
     },
     {
@@ -46,7 +76,7 @@ Save the JSON to block.json and use it in the curl call. Refer to the clouddoc l
       "type": "STRING",
       "value": "msda.nacos.com",
       "metaData": {
-        "description": "Service name to be exposed",
+        "description": "Service name to be exposed, can include the namespaceId, eg nacosmsda.naf5demo.com&namespaceId=41e92cf7-f178-46fa-8038-49e2e9f0d754",
         "displayName": "Service Name in registry",
         "isRequired": true
       }
@@ -54,7 +84,7 @@ Save the JSON to block.json and use it in the curl call. Refer to the clouddoc l
     {
       "id": "poolName",
       "type": "STRING",
-      "value": "/Common/zkSamplePool",
+      "value": "/Common/nacosSamplePool",
       "metaData": {
         "description": "Pool Name to be created",
         "displayName": "BIG-IP Pool Name",
@@ -92,12 +122,7 @@ Save the JSON to block.json and use it in the curl call. Refer to the clouddoc l
         "uiType": "dropdown",
         "uiHints": {
           "list": {
-            "dataList": [
-              "tcp",
-              "udp",
-              "http",
-              "none"
-            ]
+            "dataList": ["tcp", "udp", "http", "none"]
           }
         }
       }
@@ -116,11 +141,7 @@ Save the JSON to block.json and use it in the curl call. Refer to the clouddoc l
     }
   ],
   "configurationProcessorReference": {
-    "link": "https://localhost/mgmt/shared/iapp/processors/msdazkConfig"
-  },
-  "audit": {
-    "intervalSeconds": 0,
-    "policy": "NOTIFY_ONLY"
+    "link": "https://localhost/mgmt/shared/iapp/processors/msdanacosConfig"
   },
   "configProcessorTimeoutSeconds": 30,
   "statsProcessorTimeoutSeconds": 15,
@@ -129,6 +150,13 @@ Save the JSON to block.json and use it in the curl call. Refer to the clouddoc l
     "affinityProcessorReference": {
       "link": "https://localhost/mgmt/shared/iapp/processors/affinity/load-balanced"
     }
+  },
+  "auditProcessorReference": {
+    "link": "https://localhost/mgmt/shared/iapp/processors/msdanacosEnforceConfiguredAudit"
+  },
+  "audit": {
+    "intervalSeconds": 60,
+    "policy": "ENFORCE_CONFIGURED"
   },
   "state": "TEMPLATE"
 }

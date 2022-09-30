@@ -121,8 +121,17 @@ msdanacosConfigProcessor.prototype.onPost = function (restOperation) {
         logger.fine("MSDA: onPost, inputProperties ", blockState.inputProperties);
         logger.fine("MSDA: onPost, dataProperties ", blockState.dataProperties);
         inputProperties = blockUtil.getMapFromPropertiesAndValidate(
-            blockState.inputProperties,
-            ["nacosEndpoint", "nacosUserName", "nacosPassword", "serviceName", "poolName", "poolType", "healthMonitor"]
+          blockState.inputProperties,
+          [
+            "nacosEndpoint",
+            "nacosUserName",
+            "nacosPassword",
+            "namespaceId",
+            "serviceName",
+            "poolName",
+            "poolType",
+            "healthMonitor",
+          ]
         );
         dataProperties = blockUtil.getMapFromPropertiesAndValidate(
             blockState.dataProperties,
@@ -149,11 +158,21 @@ msdanacosConfigProcessor.prototype.onPost = function (restOperation) {
     const inputEndPoint = inputProperties.nacosEndpoint.value;
     const inputUserName = inputProperties.nacosUserName.value;
     const inputPassword = inputProperties.nacosPassword.value;
-    const inputServiceName = inputProperties.serviceName.value;
+    const inputNamespaceId = inputProperties.namespaceId.value;
+    var inputServiceName = inputProperties.serviceName.value;
     const inputPoolName = inputProperties.poolName.value;
     const inputPoolType = inputProperties.poolType.value;
     const inputMonitor = inputProperties.healthMonitor.value;
     var pollInterval = dataProperties.pollInterval.value * 1000;
+
+    // update servicename with namespaceid if exists
+    if (inputNamespaceId === "") {
+        logger.fine("MSDA: onPost, no namespaceId input.");
+    } else {
+        inputServiceName = inputServiceName + "&namespaceId=" + inputNamespaceId;
+        logger.fine("MSDA: onPost, has namespaceId input, namespaceId:", inputNamespaceId);
+    }
+
 
     // Check the existence of the pool in BIG-IP, create an empty pool if the pool doesn't exist.
     mytmsh.executeCommand("tmsh -a list ltm pool " + inputPoolName)
