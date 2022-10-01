@@ -96,15 +96,14 @@ msdanacosEnforceConfiguredAuditProcessor.prototype.onPost = function (restOperat
             //"poolType",
             //"healthMonitor",
           ]
-        );
-        
+        );        
         
         // Check the polling state, trigger ConfigProcessor if needed.
         // Move the signal checking here
         logger.fine("MSDA nacos Audit: msdanacosOnpolling: ", global.msdanacosOnPolling);
         logger.fine("MSDA nacos Audit: msdanacos poolName: ", blockInputProperties.poolName.value);
         if (
-          global.msdanacosOnPolling.includes(blockInputProperties.poolName.value)
+          global.msdanacosOnPolling.some(instance => instance.bigipPool === blockInputProperties.poolName.value)
         ) {
           logger.fine(
             "MSDA nacos audit onPost: ConfigProcessor is on polling state, no need to fire an onPost."
@@ -134,7 +133,7 @@ msdanacosEnforceConfiguredAuditProcessor.prototype.onPost = function (restOperat
         logger.fine("msdanacosEnforceConfiguredAuditProcessor.prototype.onPost caught generic exception " + ex);
         restOperation.fail(ex);
     }
-  }, 1000)
+  }, 2000)
 };
 
 var getObjectByID = function ( key, array) {
