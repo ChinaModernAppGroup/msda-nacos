@@ -299,16 +299,16 @@ msdanacosConfigProcessor.prototype.onPost = function (restOperation) {
 
     (function schedule() {
         var pollRegistry = setTimeout(function () {
-            // If signal is "update", change it into "polling"
+            // If signal is "update", change it into "polling" for new polling loop
             if (global.msdanacosOnPolling.some(instance => instance.name === instanceName)) {
                 let signalIndex = global.msdanacosOnPolling.findIndex(instance => instance.name === instanceName);
                 if (global.msdanacosOnPolling[signalIndex].state === "update") {
                     if (existingPollingLoop) {
                         logger.fine("MSDA: onPost/polling, " + instanceName + " update config, existing polling loop.");
                     } else {
-                        logger.fine("MSDA: onPost/polling, " + instanceName + " update config, a new polling loop.");
+                        //logger.fine("MSDA: onPost/polling, " + instanceName + " update config, a new polling loop.");
                         global.msdanacosOnPolling[signalIndex].state = "polling";
-                        logger.fine("MSDA: onPost/polling, " + instanceName + " update the signal.state into polling: ", global.msdanacosOnPolling[signalIndex]);
+                        logger.fine("MSDA: onPost/polling, " + instanceName + " update the signal.state into polling for new polling loop: ", global.msdanacosOnPolling[signalIndex]);
                     }
                 }
                 // update the existingPollingLoop to true
@@ -430,11 +430,11 @@ msdanacosConfigProcessor.prototype.onPost = function (restOperation) {
 
         // stop polling while undeployment or update the config
         let stopPolling = true;
-        //let signalState;
+
         if (global.msdanacosOnPolling.some(instance => instance.name === instanceName)) {
             let signalIndex = global.msdanacosOnPolling.findIndex(instance => instance.name === instanceName);
             if (global.msdanacosOnPolling[signalIndex].state === "polling") {
-                logger.fine("MSDA: onPost, " + instanceName + " keep polling registry for: ", instanceName);
+                logger.fine("MSDA: onPost, " + instanceName + " keep polling registry for: ", inputServiceName);
                 stopPolling = false;
             } else {
                 if (existingPollingLoop) {
@@ -449,7 +449,7 @@ msdanacosConfigProcessor.prototype.onPost = function (restOperation) {
         if (stopPolling) {
             process.nextTick(() => {
                 clearTimeout(pollRegistry);
-                logger.fine("MSDA: onPost/stopping, " + instanceName + " Stop polling registry for: " + instanceName);
+                logger.fine("MSDA: onPost/stopping, " + instanceName + " Stop polling registry for: " + inputServiceName);
             });
             // Delete pool configuration in case it still there.
             setTimeout (function () {
