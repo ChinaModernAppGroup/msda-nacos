@@ -14,13 +14,18 @@
 
   Updated by Ping Xiong on May/13/2022
   Updated by Ping Xiong on Jun/30/2022, using global var for polling signal.
-
+  Updated by Ping Xiong on Sep/30/2022, modify the polling signal into a json object to keep more information.
+  let blockInstance = {
+    name: "instanceName", // a block instance of the iapplx config
+    state: "polling", // can be "polling" for normal running state; "update" to modify the iapplx config
+    bigipPool: "/Common/samplePool"
+  }
 */
 
 'use strict';
 
 
-var q = require("q");
+//var q = require("q");
 
 var blockUtil = require("./blockUtils");
 var logger = require("f5-logger").getInstance();
@@ -103,14 +108,16 @@ msdanacosEnforceConfiguredAuditProcessor.prototype.onPost = function (restOperat
         logger.fine("MSDA nacos Audit: msdanacosOnpolling: ", global.msdanacosOnPolling);
         logger.fine("MSDA nacos Audit: msdanacos poolName: ", blockInputProperties.poolName.value);
         if (
-          global.msdanacosOnPolling.some(instance => instance.bigipPool === blockInputProperties.poolName.value)
+            global.msdanacosOnPolling.some(instance => instance.bigipPool === blockInputProperties.poolName.value)
         ) {
           logger.fine(
-            "MSDA nacos audit onPost: ConfigProcessor is on polling state, no need to fire an onPost."
+              "MSDA nacos audit onPost: ConfigProcessor is on polling state, no need to fire an onPost.",
+              blockInputProperties.poolName.value
           );
         } else {
           logger.fine(
-            "MSDA nacos audit onPost: ConfigProcessor is NOT on polling state, will trigger ConfigProcessor onPost."
+              "MSDA nacos audit onPost: ConfigProcessor is NOT on polling state, will trigger ConfigProcessor onPost.",
+              blockInputProperties.poolName.value
           );
           try {
             var poolNameObject = getObjectByID(
@@ -120,7 +127,8 @@ msdanacosEnforceConfiguredAuditProcessor.prototype.onPost = function (restOperat
             poolNameObject.value = null;
             oThis.finishOperation(restOperation, auditTaskState);
             logger.fine(
-              "MSDA nacos audit onPost: trigger ConfigProcessor onPost "
+              "MSDA nacos audit onPost: trigger ConfigProcessor onPost ",
+              blockInputProperties.poolName.value
             );
           } catch (err) {
             logger.fine(
@@ -130,7 +138,7 @@ msdanacosEnforceConfiguredAuditProcessor.prototype.onPost = function (restOperat
           }
         }
     } catch (ex) {
-        logger.fine("msdanacosEnforceConfiguredAuditProcessor.prototype.onPost caught generic exception " + ex);
+        logger.fine("msdanacosEnforceConfiguredAuditProcessor.prototype.onPost caught generic exception ", ex);
         restOperation.fail(ex);
     }
   }, 2000)
