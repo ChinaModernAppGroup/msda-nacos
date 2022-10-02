@@ -175,36 +175,39 @@ msdanacosConfigProcessor.prototype.onPost = function (restOperation) {
 
     // update servicename with namespaceid if exists
     if (inputNamespaceId === "") {
-        logger.fine("MSDA: onPost, no namespaceId input.");
+        logger.fine("MSDA: onPost, " + instanceName + " no namespaceId input.");
     } else {
         inputServiceName = inputServiceName + "&namespaceId=" + inputNamespaceId;
-        logger.fine("MSDA: onPost, has namespaceId input, namespaceId:", inputNamespaceId);
+        logger.fine("MSDA: onPost, " + instanceName + " has namespaceId input, namespaceId:", inputNamespaceId);
     }
 
     // Check the existence of the pool in BIG-IP, create an empty pool if the pool doesn't exist.
     mytmsh.executeCommand("tmsh -a list ltm pool " + inputPoolName)
     .then(function () {
-        logger.fine("MSDA: onPost, found the pool, no need to create an empty pool.");
+        logger.fine("MSDA: onPost, " + instanceName + " found the pool, no need to create an empty pool.");
         return;
     }, function (error) {
-        logger.fine("MSDA: onPost, GET of pool failed, adding an empty pool: " + inputPoolName);
+        logger.fine("MSDA: onPost, " + instanceName + " GET of pool failed, adding an empty pool: " + inputPoolName);
         let inputEmptyPoolConfig = inputPoolName + ' monitor ' + inputMonitor + ' load-balancing-mode ' + inputPoolType + ' members none';
         let commandCreatePool = 'tmsh -a create ltm pool ' + inputEmptyPoolConfig;
         return mytmsh.executeCommand(commandCreatePool);
     })
     .catch(function (error) {
-        logger.fine("MSDA: onPost, list pool failed: ", error.message);
+        logger.fine(
+          "MSDA: onPost, " + instanceName + " list pool failed: ",
+          error.message
+        );
     });
 
 
     // Set the polling interval
     if (pollInterval) {
         if (pollInterval < 10000) {
-            logger.fine("MSDA: onPost, pollInternal is too short, will set it to 10s ", pollInterval);
+            logger.fine("MSDA: onPost, " + instanceName + " pollInternal is too short, will set it to 10s ", pollInterval);
             pollInterval = 10000;
         }
     } else {
-        logger.fine("MSDA: onPost, pollInternal is not set, will set it to 30s ", pollInterval);
+        logger.fine("MSDA: onPost, " + instanceName + " pollInternal is not set, will set it to 30s ", pollInterval);
         pollInterval = 30000;
     }
     
@@ -229,16 +232,29 @@ msdanacosConfigProcessor.prototype.onPost = function (restOperation) {
 
     // Check if there is a conflict bigipPool in configuration
     if (global.msdanacosOnPolling.some(instance => instance.bigipPool === inputPoolName)) {
-        logger.fine("MSDA: onPost, already has an instance polling the same pool, please check it out: ", inputPoolName);
-        return configTaskUtil.sendPatchToErrorState(
-          configTaskState,
-          error,
-          oThis.getUri().href,
-          restOperation.getBasicAuthorization()
+        logger.fine(
+          "MSDA: onPost, " +
+            instanceName +
+            " already has an instance polling the same pool, change BLOCK to ERROR: ",
+          inputPoolName
         );
+        try { 
+            throw new Error("onPost: poolName conflict: " + inputPoolName + " , will set the BLOCK to ERROR state");
+        } catch (error) {
+            configTaskUtil.sendPatchToErrorState(
+              configTaskState,
+              error,
+              oThis.getUri().href,
+              restOperation.getBasicAuthorization()
+            );
+        }
+        return;
     } else {
         global.msdanacosOnPolling.push(blockInstance);
-        logger.fine("MSDA onPost: set msdanacosOnpolling signal: ", global.msdanacosOnPolling);
+        logger.fine(
+          "MSDA onPost: " + instanceName + " set msdanacosOnpolling signal: ",
+          global.msdanacosOnPolling
+        );
     }
     
     /*
@@ -257,7 +273,12 @@ msdanacosConfigProcessor.prototype.onPost = function (restOperation) {
     }
     */
     
-    logger.fine("MSDA: onPost, Input properties accepted, change to BOUND status, start to poll Registry for: ", instanceName);
+    logger.fine(
+      "MSDA: onPost, " +
+        instanceName +
+        " Input properties accepted, change to BOUND status, start to poll Registry for: ",
+      instanceName
+    );
 
     configTaskUtil.sendPatchToBoundState(configTaskState, 
             oThis.getUri().href, restOperation.getBasicAuthorization());
