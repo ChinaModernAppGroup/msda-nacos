@@ -97,7 +97,7 @@ msdanacosEnforceConfiguredAuditProcessor.prototype.onPost = function (restOperat
             //"nacosUserName",
             //"nacosPassword",
             //"serviceName",
-            "poolName",
+            "poolName"
             //"poolType",
             //"healthMonitor",
           ]

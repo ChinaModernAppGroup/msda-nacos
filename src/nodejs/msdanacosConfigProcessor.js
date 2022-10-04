@@ -304,18 +304,29 @@ msdanacosConfigProcessor.prototype.onPost = function (restOperation) {
                 let signalIndex = global.msdanacosOnPolling.findIndex(instance => instance.name === instanceName);
                 if (global.msdanacosOnPolling[signalIndex].state === "update") {
                     if (existingPollingLoop) {
-                        logger.fine("MSDA: onPost/polling, " + instanceName + " update config, existing polling loop.");
+                        logger.fine(
+                            "MSDA: onPost/polling, " +
+                            instanceName +
+                            " update config, existing polling loop."
+                        );
                     } else {
                         //logger.fine("MSDA: onPost/polling, " + instanceName + " update config, a new polling loop.");
                         global.msdanacosOnPolling[signalIndex].state = "polling";
-                        logger.fine("MSDA: onPost/polling, " + instanceName + " update the signal.state into polling for new polling loop: ", global.msdanacosOnPolling[signalIndex]);
+                        logger.fine(
+                            "MSDA: onPost/polling, " +
+                            instanceName + " update the signal.state into polling for new polling loop: ",
+                            global.msdanacosOnPolling[signalIndex]
+                        );
                     }
                 }
                 // update the existingPollingLoop to true
                 existingPollingLoop = true;
             } else {
                 // Non-exist instance, will NOT proceed to poll the registry
-                return logger.fine("MSDA: onPost/polling, " + instanceName + " Stop polling registry for: " + instanceName);
+                return logger.fine(
+                    "MSDA: onPost/polling, " +
+                    instanceName + " Stop polling registry."
+                );
             }
             
             // polling the registry
@@ -415,7 +426,7 @@ msdanacosConfigProcessor.prototype.onPost = function (restOperation) {
                             })
                                 // Error handling - Set the block as 'ERROR'
                             .catch(function (error) {
-                                logger.fine("MSDA: onPost, " + instanceName + " Delete failed: ", error.message);
+                                logger.fine("MSDA: onPost, " + instanceName + " clear pool failed: ", error.message);
                             });
                     }
                 }, function (err) {
@@ -512,23 +523,23 @@ msdanacosConfigProcessor.prototype.onDelete = function (restOperation) {
 
     mytmsh.executeCommand("tmsh -a list ltm pool " + inputProperties.poolName.value)
         .then(function () {
-            logger.fine("MSDA: onDelete, " + instanceName + " delete Found a pre-existing pool. Full Config Delete: ", inputProperties.poolName.value);
+            logger.fine("MSDA: onDelete, " + instanceName + " Found a pre-existing pool. Full Config Delete: ", inputProperties.poolName.value);
             const commandDeletePool = 'tmsh -a delete ltm pool ' + inputProperties.poolName.value;
             return mytmsh.executeCommand(commandDeletePool)
             .then (function (response) {
-                logger.fine("MSDA: onDelete, " + instanceName + " delete The pool is all removed: ", inputProperties.poolName.value);
+                logger.fine("MSDA: onDelete, " + instanceName + " The pool is all removed: ", inputProperties.poolName.value);
                 configTaskUtil.sendPatchToUnBoundState(configTaskState,
                     oThis.getUri().href, restOperation.getBasicAuthorization());
                 });
         }, function (error) {
             // the configuration must be clean. Nothing to delete
-            logger.fine("MSDA: onDelete, " + instanceName + " pool does't exist: " + error.message);
+            logger.fine("MSDA: onDelete, " + instanceName + " pool does't exist: ", error.message);
             configTaskUtil.sendPatchToUnBoundState(configTaskState, 
                 oThis.getUri().href, restOperation.getBasicAuthorization());
         })
         // Error handling - Set the block as 'ERROR'
         .catch(function (error) {
-            logger.fine("MSDA: onDelete, " + instanceName + " Delete failed, setting block to ERROR: " + error.message);
+            logger.fine("MSDA: onDelete, " + instanceName + " Delete failed, setting block to ERROR: ", error.message);
             configTaskUtil.sendPatchToErrorState(configTaskState, error,
                 oThis.getUri().href, restOperation.getBasicAuthorization());
         })
@@ -548,7 +559,7 @@ msdanacosConfigProcessor.prototype.onDelete = function (restOperation) {
     });
     //stopPollingEvent.emit('stopPollingRegistry');
     */
-    logger.fine("MSDA: onDelete, " + instanceName + " Stop polling Registry while ondelete action.");
+    logger.fine("MSDA: onDelete, DONE!!! " + instanceName + " Stop polling Registry while ondelete action.");
 };
 
 module.exports = msdanacosConfigProcessor;
