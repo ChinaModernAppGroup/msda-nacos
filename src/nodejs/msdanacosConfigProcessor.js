@@ -311,7 +311,7 @@ msdanacosConfigProcessor.prototype.onPost = function (restOperation) {
                         );
                     } else {
                         //logger.fine("MSDA: onPost/polling, " + instanceName + " update config, a new polling loop.");
-                        global.msdanacosOnPolling[signalIndex].state === "polling";
+                        global.msdanacosOnPolling[signalIndex].state = "polling";
                         logger.fine(
                             "MSDA: onPost/polling, " +
                             instanceName + " update the signal.state into polling for new polling loop: ",
