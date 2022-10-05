@@ -519,6 +519,15 @@ msdanacosConfigProcessor.prototype.onDelete = function (restOperation) {
     // device, setup remote hostname, HTTPS port and device group name
     // to be used for identified requests
 
+    // Delete the polling  signal first, then remove the pool in bigip.
+    // Delete the polling signal
+    let signalIndex = global.msdanacosOnPolling.findIndex(instance => instance.name === instanceName);
+    global.msdanacosOnPolling.splice(signalIndex, 1);
+    logger.fine(
+        "MSDA: onDelete, " +
+        instanceName +
+        " deleted polling signal!!! Continue to remove the pool in bigip."
+    );
     // Use tmsh to update configuration
 
     mytmsh.executeCommand("tmsh -a list ltm pool " + inputProperties.poolName.value)
@@ -545,10 +554,14 @@ msdanacosConfigProcessor.prototype.onDelete = function (restOperation) {
         })
         // Always called, no matter the disposition. Also handles re-throwing internal exceptions.
         .done(function () {
-            logger.fine("MSDA: onDelete, " + instanceName + " delete DONE!!! Continue to clear the polling signal.");  // happens regardless of errors or no errors ....
+            logger.fine(
+                "MSDA: onDelete, " +
+                instanceName +
+                " Bigip configuration delete DONE!!!"
+            );  // happens regardless of errors or no errors ....
             // Delete the polling signal
-            let signalIndex = global.msdanacosOnPolling.findIndex(instance => instance.name === instanceName);
-            global.msdanacosOnPolling.splice(signalIndex,1);
+            //let signalIndex = global.msdanacosOnPolling.findIndex(instance => instance.name === instanceName);
+            //global.msdanacosOnPolling.splice(signalIndex,1);
         });
     
     /*
@@ -559,7 +572,7 @@ msdanacosConfigProcessor.prototype.onDelete = function (restOperation) {
     });
     //stopPollingEvent.emit('stopPollingRegistry');
     */
-    logger.fine("MSDA: onDelete, DONE!!! " + instanceName + " Stop polling Registry while ondelete action.");
+    //logger.fine("MSDA: onDelete, DONE!!! " + instanceName + " Stop polling Registry while ondelete action.");
 };
 
 module.exports = msdanacosConfigProcessor;
