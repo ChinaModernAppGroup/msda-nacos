@@ -12,14 +12,15 @@
   either express or implied. See the License for the specific
   language governing permissions and limitations under the License.
   
-  Updated by Ping Xiong on May/04/2022.
-  Updated by Ping Xiong on Jun/30/2022, using global var for polling signal, optimize ondelete action.
-  Updated by Ping Xiong on Sep/30/2022, modify the polling signal into a json object to keep more information.
+  May/04/2022, updated by Ping Xiong.
+  Jun/30/2022, updated by Ping Xiong, using global var for polling signal, optimize ondelete action.
+  Sep/30/2022, updated by Ping Xiong, modify the polling signal into a json object to keep more information.
   let blockInstance = {
     name: "instanceName", // a block instance of the iapplx config
     state: "polling", // can be "polling" for normal running state; "update" to modify the iapplx config
     bigipPool: "/Common/samplePool"
   }
+  Jan/08/2023, updated by Ping Xiong, compare pool member list before update config.
 */
 
 'use strict';
@@ -86,21 +87,38 @@ msdanacosConfigProcessor.prototype.onStart = function (success) {
         restHelper: this.restHelper
     });
 
-    /*
-    // Clear the polling signal for audit.
-    try {
-        fs.access(msdanacosOnPollingSignal, fs.constants.F_OK, function (err) {
-            if (err) {
-                logger.fine("MSDAnacos audit OnStart, the polling signal is off. ", err.message);
-            } else {
-                logger.fine("MSDA nacos audit onStart: ConfigProcessor started, clear the signal.");
-                fs.unlinkSync(msdanacosOnPollingSignal);
-            }
-        });
-    } catch(err) {
-        logger.fine("MSDAnacos: OnStart, hits error while check pooling signal. ", err.message);
-    }
-    */
+    // Check the db key bigpipe.displayservicenames, modify it into false for comparing pool member list.
+    mytmsh.executeCommand("tmsh -a list sys db bigpipe.displayservicenames")
+    .then(function (result) {
+        if (result.indexOf("true") > -1) {
+            logger.fine(
+                "MSDA: onStart, bigpipe.displayservicenames is true, will modify it into false."
+            );
+            return mytmsh
+                .executeCommand(
+                "tmsh -a modify sys db bigpipe.displayservicenames value false"
+                )
+                .then(function () {
+                logger.fine(
+                    "MSDA: onStart, updated bigpipe.displayservicenames into false."
+                );
+                });
+        } else {
+            return logger.fine(
+              "MSDA: onStart, bigpipe.displayservicenames is false, no change needed."
+            );
+        }
+    }, function () {
+        return logger.fine(
+            "MSDA: onStart, fail to list the db key bigpipe.displayservicenames."
+        );
+    })
+    .catch(function (error) {
+        logger.fine(
+          "MSDA: onStart, fail to list the db key bigpipe.displayservicenames. ",
+          error.message
+        );
+    });
 
     success();
 };
@@ -256,22 +274,7 @@ msdanacosConfigProcessor.prototype.onPost = function (restOperation) {
           global.msdanacosOnPolling
         );
     }
-    
-    /*
-    if (global.msdanacosOnPolling.includes(inputPoolName)) {
-        return logger.fine("MSDA: onPost, already has an instance polling the same pool, please check it out: " + inputPoolName);
-    } else { 
-        global.msdanacosOnPolling.push(inputPoolName);
-        logger.fine("MSDA onPost: set msdanacosOnpolling signal: ", global.msdanacosOnPolling);
-    }
 
-    try {
-        logger.fine("MSDAnacos: onPost, will set the polling signal. ");
-        fs.writeFile(msdanacosOnPollingSignal, '');
-    } catch (error) {
-        logger.fine("MSDAnacos: onPost, hit error while set polling signal: ", error.message);
-    }
-    */
     
     logger.fine(
       "MSDA: onPost, " +
@@ -284,6 +287,29 @@ msdanacosConfigProcessor.prototype.onPost = function (restOperation) {
             oThis.getUri().href, restOperation.getBasicAuthorization());
 
     // A internal service to retrieve service member information from registry, and then update BIG-IP setting.
+
+    // Define functions to compare pool members
+
+    function getPoolMembers(result) {
+        const lines = result.split("\n");
+        let poolMembers = [];
+        lines.forEach((line, i) => {
+            if (line.indexOf("address") > -1) {
+            let memberLine = lines[i - 1];
+            memberLine = memberLine.trim();
+            memberLine = memberLine.split(" ");
+            poolMembers.push(memberLine[0]);
+            }
+        });
+        return poolMembers;
+    }
+
+    function compareArray(array1, array2) {
+        return (
+            array1.length === array2.length &&
+            array1.every((item) => array2.indexOf(item) > -1)
+        );
+    }
 
     //inputEndPoint = inputEndPoint.toString().split(","); 
     logger.fine(
@@ -393,10 +419,34 @@ msdanacosConfigProcessor.prototype.onPost = function (restOperation) {
                         // Use tmsh to update BIG-IP configuration instead of restful API
 
                         // Start with check the exisitence of the given pool
-                        mytmsh.executeCommand("tmsh -a list ltm pool " + inputPoolName).then(function () {
-                            logger.fine("MSDA: onPost, " + instanceName + " Found a pre-existing pool. Update pool setting: ", inputPoolName);
-                            let commandUpdatePool = 'tmsh -a modify ltm pool ' + inputPoolConfig;
-                            return mytmsh.executeCommand(commandUpdatePool);
+                        mytmsh.executeCommand("tmsh -a list ltm pool " + inputPoolName).then(function (result) {
+                            // Get pool members from list result
+                            let poolMembersArray = getPoolMembers(result);
+                            logger.fine(
+                                "MSDA: onPost, " +
+                                instanceName +
+                                " Found a pre-existing pool: " +
+                                inputPoolName + " has members: ",
+                                poolMembersArray
+                            );
+
+                            if (compareArray(nodeAddress, poolMembersArray)) {
+                                return logger.fine(
+                                  "MSDA: onPost, " +
+                                    instanceName +
+                                    " Existing pool has the same member list as service registry, will not update the BIG-IP config. ",
+                                    inputPoolName
+                                );
+                            } else {
+                                logger.fine(
+                                  "MSDA: onPost, " +
+                                    instanceName +
+                                    " Existing pool has the different member list compare to service registry, will update the BIG-IP config. ",
+                                  inputPoolName
+                                );
+                                let commandUpdatePool = "tmsh -a modify ltm pool " + inputPoolConfig;
+                                return mytmsh.executeCommand(commandUpdatePool);
+                            }
                         }, function (error) {
                             logger.fine("MSDA: onPost, " + instanceName + " GET of pool failed, adding from scratch: ", inputPoolName);
                             let commandCreatePool = 'tmsh -a create ltm pool ' + inputPoolConfig;
@@ -411,13 +461,41 @@ msdanacosConfigProcessor.prototype.onPost = function (restOperation) {
                         //To clear the pool
                         logger.fine("MSDA: onPost, " + instanceName + " endpoint list is empty, will clear the BIG-IP pool as well");
                         mytmsh.executeCommand("tmsh -a list ltm pool " + inputPoolName)
-                            .then(function () {
-                                logger.fine("MSDA: onPost, " + instanceName + " found the pool, will delete all members as it's empty.");
-                                let commandUpdatePool = 'tmsh -a modify ltm pool ' + inputPoolName + ' members delete { all}';
-                                return mytmsh.executeCommand(commandUpdatePool)
-                                    .then(function (response) {
-                                        logger.fine("MSDA: onPost, " + instanceName + " update the pool to delete all members as it's empty. ");
-                                    });
+                            .then(function (result) {
+                                // Get pool members from list result
+                                let poolMembersArray = getPoolMembers(result);
+                                logger.fine(
+                                    "MSDA: onPost, " +
+                                    instanceName +
+                                    " found the pool, will delete all members as it's empty.",
+                                    poolMembersArray
+                                );
+
+                                if (poolMembersArray.length == 0) {
+                                    return logger.fine(
+                                      "MSDA: onPost, " +
+                                        instanceName +
+                                        " Existing pool has the same member list as service registry, will not update the BIG-IP config. ",
+                                      inputPoolName
+                                    );
+                                } else {
+                                    logger.fine(
+                                      "MSDA: onPost, " +
+                                        instanceName +
+                                        " Existing pool has the different member list compare to service registry, will update the BIG-IP config. ",
+                                      inputPoolName
+                                    );
+                                    let commandUpdatePool = 'tmsh -a modify ltm pool ' + inputPoolName + ' members delete { all}';
+                                    return mytmsh
+                                      .executeCommand(commandUpdatePool)
+                                      .then(function () {
+                                        logger.fine(
+                                          "MSDA: onPost, " +
+                                            instanceName +
+                                            " update the pool to delete all members as it's empty. "
+                                        );
+                                      });
+                                }
                             }, function (error) {
                                 logger.fine("MSDA: onPost, " + instanceName + " GET of pool failed, adding an empty pool: ", inputPoolName);
                                 let inputEmptyPoolConfig = inputPoolName + ' monitor ' + inputMonitor + ' load-balancing-mode ' + inputPoolType + ' members none';
