@@ -105,19 +105,28 @@ msdanacosEnforceConfiguredAuditProcessor.prototype.onPost = function (restOperat
         
         // Check the polling state, trigger ConfigProcessor if needed.
         // Move the signal checking here
-        logger.fine("MSDA nacos Audit: msdanacosOnpolling: ", global.msdanacosOnPolling);
-        logger.fine("MSDA nacos Audit: msdanacos poolName: ", blockInputProperties.poolName.value);
+        logger.fine(
+          getLogHeader() + "MSDA nacos Audit: msdanacosOnpolling: ",
+          global.msdanacosOnPolling
+        );
+        logger.fine(
+          getLogHeader() + "MSDA nacos Audit: msdanacos poolName: ",
+          blockInputProperties.poolName.value
+        );
         if (
             global.msdanacosOnPolling.some(instance => instance.bigipPool === blockInputProperties.poolName.value)
         ) {
           logger.fine(
+            getLogHeader() +
               "MSDA nacos audit onPost: ConfigProcessor is on polling state, no need to fire an onPost.",
-              blockInputProperties.poolName.value
+            blockInputProperties.poolName.value
           );
+          oThis.finishOperation(restOperation, auditTaskState);
         } else {
           logger.fine(
+            getLogHeader() +
               "MSDA nacos audit onPost: ConfigProcessor is NOT on polling state, will trigger ConfigProcessor onPost.",
-              blockInputProperties.poolName.value
+            blockInputProperties.poolName.value
           );
           try {
             var poolNameObject = getObjectByID(
@@ -127,18 +136,24 @@ msdanacosEnforceConfiguredAuditProcessor.prototype.onPost = function (restOperat
             poolNameObject.value = null;
             oThis.finishOperation(restOperation, auditTaskState);
             logger.fine(
-              "MSDA nacos audit onPost: trigger ConfigProcessor onPost ",
+              getLogHeader() +
+                "MSDA nacos audit onPost: trigger ConfigProcessor onPost ",
               blockInputProperties.poolName.value
             );
           } catch (err) {
             logger.fine(
-              "MSDA nacos audit onPost: Failed to send out restOperation. ",
+              getLogHeader() +
+                "MSDA nacos audit onPost: Failed to send out restOperation. ",
               err.message
             );
           }
         }
     } catch (ex) {
-        logger.fine("msdanacosEnforceConfiguredAuditProcessor.prototype.onPost caught generic exception ", ex);
+        logger.fine(
+          getLogHeader() +
+            "msdanacosEnforceConfiguredAuditProcessor.prototype.onPost caught generic exception ",
+          ex
+        );
         restOperation.fail(ex);
     }
   //}, 2000)
