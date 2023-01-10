@@ -321,7 +321,8 @@ msdanacosConfigProcessor.prototype.onPost = function (restOperation) {
 
     const nacosAuthUrl = inputEndPoint + '/nacos/v1/auth/login';
     const nacosCrendential = 'username=' + inputUserName + '&password=' + inputPassword;
-    var absoluteUrl = inputEndPoint + nacosAPI + inputServiceName;
+    const nacosServicePollingUrl = inputEndPoint + nacosAPI + inputServiceName;
+    var absoluteUrl = nacosServicePollingUrl;
 
     (function schedule() {
         var pollRegistry = setTimeout(function () {
@@ -393,7 +394,7 @@ msdanacosConfigProcessor.prototype.onPost = function (restOperation) {
                                       jsondata.accessToken
                                     );
                                     // Authenticated user, go ahead for further process.
-                                    absoluteUrl = absoluteUrl + '&accessToken=' + jsondata.accessToken;
+                                    absoluteUrl = nacosServicePollingUrl + '&accessToken=' + jsondata.accessToken;
                                 })
                                 .catch(function (error) {
                                     logger.fine("MSDA: onPost, " + instanceName + " Can't get accessToken: ", error.message);
