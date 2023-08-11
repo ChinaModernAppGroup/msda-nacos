@@ -18,10 +18,12 @@
   let blockInstance = {
     name: "instanceName", // a block instance of the iapplx config
     state: "polling", // can be "polling" for normal running state; "update" to modify the iapplx config
+    bigipPoolChange: false, // Add a signal for bigip pool change update
     bigipPool: "/Common/samplePool"
   }
   Jan/08/2023, updated by Ping Xiong, compare pool member list before update config.
   Mar/09/2023, updated by Ping Xiong, update delta of pool members instead of replace-all-with latest config.
+  Aug/11/2023, updated by Ping Xiong, update config will not delete the pool unless the pool changed.
 */
 
 'use strict';
@@ -203,8 +205,10 @@ msdanacosConfigProcessor.prototype.onPost = function (restOperation) {
     // Check the existence of the pool in BIG-IP, create an empty pool if the pool doesn't exist.
     mytmsh.executeCommand("tmsh -a list ltm pool " + inputPoolName)
     .then(function () {
-        logger.fine("MSDA: onPost, " + instanceName + " found the pool, no need to create an empty pool.");
-        return;
+        logger.fine("MSDA: onPost, " + instanceName + " found the pool, update pool configure.");
+        let inputExistingPoolConfig = inputPoolName + ' monitor ' + inputMonitor + ' load-balancing-mode ' + inputPoolType;
+        let commandModifyPool = 'tmsh -a modify ltm pool ' + inputExistingPoolConfig;
+        return mytmsh.executeCommand(commandModifyPool);
     }, function (error) {
         logger.fine("MSDA: onPost, " + instanceName + " GET of pool failed, adding an empty pool: " + inputPoolName);
         let inputEmptyPoolConfig = inputPoolName + ' monitor ' + inputMonitor + ' load-balancing-mode ' + inputPoolType + ' members none';
@@ -235,11 +239,17 @@ msdanacosConfigProcessor.prototype.onPost = function (restOperation) {
     let blockInstance = {
         name: instanceName,
         bigipPool: inputPoolName,
+        // Add signal for bigip pool change update
+        bigipPoolChange: false,
         state: "polling"
     };
 
     let signalIndex = global.msdanacosOnPolling.findIndex(instance => instance.name === instanceName);
     if (signalIndex !== -1) {
+        //Already has the instance, set the pool change signal if the pool changed
+        blockInstance.bigipPoolChange =
+            global.msdanacosOnPolling[signalIndex].bigipPool !== inputPoolName;
+
         // Already has the instance, change the state into "update"
         global.msdanacosOnPolling.splice(signalIndex, 1);
         blockInstance.state = "update";
@@ -565,21 +575,41 @@ msdanacosConfigProcessor.prototype.onPost = function (restOperation) {
                 clearTimeout(pollRegistry);
                 logger.fine("MSDA: onPost/stopping, " + instanceName + " Stop polling registry for: " + inputServiceName);
             });
-            // Delete pool configuration in case it still there.
-            setTimeout (function () {
-                const commandDeletePool = 'tmsh -a delete ltm pool ' + inputPoolName;
-                mytmsh.executeCommand(commandDeletePool)
-                .then (function () {
-                    logger.fine("MSDA: onPost/stopping, " + instanceName + " the pool removed: ", inputPoolName);
-                })
-                    // Error handling
-                .catch(function (err) {
-                    logger.fine("MSDA: onPost/stopping, " + instanceName + " Delete failed: " + inputPoolName, err.message);
-                })
-                .done(function () {
-                    return logger.fine("MSDA: onPost/stopping, " + instanceName + " exit loop.");
-                });
-            }, 2000);
+            // Delete pool configuration if the pool name changed.
+
+            if (
+                global.msdanacosOnPolling.some(
+                    (instance) => instance.name === instanceName
+                )
+            ) {
+                let signalIndex = global.msdanacosOnPolling.findIndex(
+                    (instance) => instance.name === instanceName
+                );
+                if (global.msdanacosOnPolling[signalIndex].bigipPoolChange === true) {
+                    logger.fine(
+                    "MSDA: onPost, " +
+                        instanceName +
+                        " BigipPool Changed, will delete previous pool for : ",
+                    inputServiceName
+                    );
+
+                    setTimeout (function () {
+                        const commandDeletePool = 'tmsh -a delete ltm pool ' + inputPoolName;
+                        mytmsh.executeCommand(commandDeletePool)
+                        .then (function () {
+                            logger.fine("MSDA: onPost/stopping, " + instanceName + " the pool removed: ", inputPoolName);
+                        })
+                            // Error handling
+                        .catch(function (err) {
+                            logger.fine("MSDA: onPost/stopping, " + instanceName + " Delete failed: " + inputPoolName, err.message);
+                        })
+                        .done(function () {
+                            global.msdanacosOnPolling[signalIndex].bigipPoolChange = false;
+                            return logger.fine("MSDA: onPost/stopping, " + instanceName + " exit loop.");
+                        });
+                    }, 2000);
+                };
+            }
         }        
     })();
 };
